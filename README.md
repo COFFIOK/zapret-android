@@ -1,1 +1,21 @@
-# zapret-android
+# Zapret для Android
+
+Обход блокировок (DPI) на телефоне в стиле [Zapret GUI](https://github.com/COFFIOK/zapret-gui). **by COFFIOK**
+
+- Одна кнопка: включить / выключить обход.
+- Выбор стратегии (Z1…Z60) или своя строка параметров.
+- Плитка в шторке уведомлений и запуск вместе с телефоном.
+
+Работает как VPN, но **без сервера**: весь трафик обрабатывается прямо на телефоне и никуда не отправляется.
+IP-адрес не меняется и трафик не шифруется — приложение только меняет пакеты так, чтобы фильтр провайдера их не узнал.
+
+## Установка
+Скачай `Zapret-universal.apk` из раздела Releases и открой его на телефоне.
+
+## Благодарности и лицензия
+- Движок — [ByeDPI](https://github.com/hufrea/byedpi) (hufrea), MIT.
+- Туннель — [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) (heiher), MIT.
+- Связка движка и туннеля и набор стратегий — по мотивам [ByeByeDPI](https://github.com/romanvht/ByeByeDPI) (romanvht), GPL-3.0.
+- Пиксельный шрифт — на основе Pixelify Sans, SIL Open Font License (`FONT-OFL.txt`).
+
+Код приложения распространяется по лицензии **GPL-3.0** (`LICENSE`).

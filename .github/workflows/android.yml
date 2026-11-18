@@ -1,0 +1,61 @@
+# Сборка APK: при каждом push и вручную. Готовые APK — в артефактах запуска (и в релизе, если запушен тег v*).
+name: android
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Ключ подписи (если задан в секретах)
+        env:
+          KEYSTORE_B64: ${{ secrets.ZAPRET_KEYSTORE }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/zapret.jks"
+            echo "ZAPRET_KEYSTORE_FILE=$RUNNER_TEMP/zapret.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Секрет ZAPRET_KEYSTORE не задан — APK подписан отладочным ключом (обновлять поверх не получится)"
+          fi
+
+      - name: Сборка
+        env:
+          ZAPRET_KEYSTORE_PASSWORD: ${{ secrets.ZAPRET_KEYSTORE_PASSWORD }}
+        run: gradle --no-daemon assembleRelease
+
+      - name: Имена файлов
+        run: |
+          mkdir out
+          for f in app/build/outputs/apk/release/*.apk; do
+            n=$(basename "$f" | sed 's/^app-//; s/-release//; s/-unsigned//')
+            cp "$f" "out/Zapret-$n"
+          done
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zapret-android
+          path: out/*.apk
+
+      - name: Релиз (для тегов v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" out/*.apk --title "Zapret для Android $GITHUB_REF_NAME" --notes "Ставь Zapret-universal.apk — подходит для любого телефона." || gh release upload "$GITHUB_REF_NAME" out/*.apk --clobber

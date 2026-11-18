@@ -44,12 +44,13 @@ object Tester {
         cancel = false; running.value = true; done.value = 0; total.value = strategies.size; results.clear()
         status.value = "Запускаю…"
         val app = ctx.applicationContext
+        val prefs = Prefs(app)
         thread(name = "tester") {
             val pool = Executors.newFixedThreadPool(PARALLEL)
             strategies.forEach { st ->
                 pool.execute {
                     if (cancel) return@execute
-                    val r = testOne(exe, st, sites, 21000 + port.getAndIncrement() % 500)
+                    val r = testOne(exe, st, prefs.resolve(st.args), sites, 21000 + port.getAndIncrement() % 500)
                     if (cancel) return@execute
                     synchronized(results) {
                         results.add(r)
@@ -76,8 +77,8 @@ object Tester {
 
     private fun killAll() { synchronized(procs) { procs.forEach { try { it.destroy() } catch (e: Exception) { } }; procs.clear() } }
 
-    private fun testOne(exe: String, st: Strategy, sites: List<Pair<String, String>>, port: Int): TestResult {
-        val args = listOf(exe, "--ip", "127.0.0.1", "--port", port.toString()) + Prefs.split(st.args)
+    private fun testOne(exe: String, st: Strategy, stArgs: String, sites: List<Pair<String, String>>, port: Int): TestResult {
+        val args = listOf(exe, "--ip", "127.0.0.1", "--port", port.toString()) + Prefs.split(stArgs)
         val p = try { ProcessBuilder(args).redirectErrorStream(true).start() } catch (e: Exception) { return TestResult(st, 0, sites.size, true, emptyList()) }
         synchronized(procs) { procs.add(p) }
         thread { try { p.inputStream.use { it.readBytes() } } catch (e: Exception) { } }     // вывод не нужен, но читать его надо

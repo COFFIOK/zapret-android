@@ -8,6 +8,9 @@ object Native {
     external fun startProxy(args: Array<String>): Int
     external fun stopProxy(): Int
 
+    /** Не пускать UDP на порт 443 (QUIC): приложения переходят на обычный HTTPS. */
+    external fun setDropQuic(on: Boolean)
+
     /** Блокирует поток, пока работает туннель. */
     external fun startTunnel(config: String, fd: Int): Int
     external fun stopTunnel()

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 
 #include "byedpi/error.h"
 #include "main.h"
@@ -13,6 +14,26 @@ extern int server_fd;
 static pthread_mutex_t proxy_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int proxy_started;
 static int proxy_running;
+
+// «Закрыть QUIC»: UDP на порт 443 не соединяем — приложения переходят на обычный HTTPS (его ByeDPI обходит)
+static volatile int drop_quic = 0;
+int __real_connect(int fd, const struct sockaddr *a, socklen_t l);
+int __wrap_connect(int fd, const struct sockaddr *a, socklen_t l) {
+    if (drop_quic && a && (a->sa_family == AF_INET || a->sa_family == AF_INET6)) {
+        int type = 0; socklen_t tl = sizeof(type);
+        if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &tl) == 0 && type == SOCK_DGRAM) {
+            unsigned short port = a->sa_family == AF_INET ? ntohs(((const struct sockaddr_in *) a)->sin_port)
+                                                          : ntohs(((const struct sockaddr_in6 *) a)->sin6_port);
+            if (port == 443) { errno = ECONNREFUSED; return -1; }
+        }
+    }
+    return __real_connect(fd, a, l);
+}
+
+JNIEXPORT void JNICALL
+Java_com_coffiok_zapret_Native_setDropQuic(JNIEnv *env, jobject thiz, jboolean on) {
+    drop_quic = on ? 1 : 0;
+}
 
 int __wrap_daemon(int nochdir, int noclose) {
     errno = EPERM;

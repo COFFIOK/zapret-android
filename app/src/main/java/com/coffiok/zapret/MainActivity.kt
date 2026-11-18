@@ -285,6 +285,7 @@ class MainActivity : ComponentActivity() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(s.name, fontFamily = Pixel, fontSize = 22.sp, color = if (sel) Accent else Fg)
                             if (s.id == "Z1") { Spacer(Modifier.width(8.dp)); Text("стандартная", fontSize = 11.sp, color = Muted) }
+                            if (s.id.startsWith("F")) { Spacer(Modifier.width(8.dp)); Text("Flowseal", fontSize = 11.sp, color = Muted) }
                             Spacer(Modifier.weight(1f))
                             if (sc != null) ScoreTag(sc)
                         }
@@ -346,16 +347,16 @@ class MainActivity : ComponentActivity() {
                     }
                     Caption("Стратегии")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Chip("Быстро · Z1–Z15", !all) { all = false }
+                        Chip("Быстро · Flowseal", !all) { all = false }
                         Chip("Все · ${prefs.strategies().size}", all) { all = true }
                     }
                     Spacer(Modifier.height(12.dp))
-                    val n = if (all) prefs.strategies().count { it.args.isNotBlank() } else 15
+                    val n = if (all) prefs.strategies().count { it.args.isNotBlank() } else prefs.strategies().count { it.id.startsWith("F") }
                     val sites = groups.filter { it.name in picked }.sumOf { minOf(it.sites.size, 20) }
                     Text(if (sites == 0) "Выбери хотя бы одну группу" else "$n стратегий × $sites сайтов · примерно ${maxOf(1, n * 6 / 3 / 60)} мин", fontSize = 12.sp, color = Muted)
                     Spacer(Modifier.height(10.dp))
                     PixelButton("Запустить тест", enabled = sites > 0) {
-                        val list = prefs.strategies().filter { it.args.isNotBlank() }.let { if (all) it else it.filter { s -> s.id != "custom" }.take(15) }
+                        val list = prefs.strategies().filter { it.args.isNotBlank() }.let { if (all) it else it.filter { s -> s.id.startsWith("F") } }
                         Tester.start(this@MainActivity, list, groups.filter { it.name in picked })
                     }
                 } else {
@@ -601,6 +602,7 @@ class MainActivity : ComponentActivity() {
         val msg by Updater.message
         var chat by remember { mutableStateOf(0) }       // 0 — нет, 1 — чат, 2 — отчёт об ошибке
         var ipv6 by remember { mutableStateOf(prefs.ipv6) }
+        var quic by remember { mutableStateOf(prefs.blockQuic) }
 
         if (chat != 0) { ChatScreen(bug = chat == 2) { chat = 0 }; return }
 
@@ -630,6 +632,10 @@ class MainActivity : ComponentActivity() {
             Caption("Запуск")
             ToggleRow("Запуск с телефоном", "включать обход после перезагрузки", autostart) { autostart = !autostart; prefs.autostart = autostart }
 
+            ToggleRow("Закрыть QUIC", "YouTube и другие приложения пойдут через обход", quic) {
+                quic = !quic; prefs.blockQuic = quic
+                if (state.value == "on") { restartAfterStop = true; ZapretVpnService.stop(this@MainActivity) }
+            }
             ToggleRow("IPv6 через обход", "без этого часть приложений идёт мимо Zapret", ipv6) {
                 ipv6 = !ipv6; prefs.ipv6 = ipv6
                 if (state.value == "on") { restartAfterStop = true; ZapretVpnService.stop(this@MainActivity) }

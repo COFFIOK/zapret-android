@@ -1,0 +1,16 @@
+# Стратегии по мотивам Flowseal (zapret-discord-youtube): те же приёмы, переложенные на ByeDPI.
+# Точь-в-точь повторить нельзя — zapret на телефоне без root не работает. Формат: имя|параметры; {google}, {4pda}, {sferum} — файлы-подделки.
+GENERAL|-s1 -f-1 -l {4pda} -t 3 -a1
+ALT|-f1 -l {google} -t 3 -d1 -a1
+ALT2|-s2 -f-1 -l {google} -t 3 -a1
+ALT3|-f-1 -Qr -n ya.ru -s1+s -t 3 -a1
+ALT4|-f-1 -l {google} -s1 -t 5 -a1
+ALT6|-s1 -f-1 -l {google} -t 4 -a1
+ALT7|-s2 -s1+s -f-1 -l {google} -t 3 -a1
+ALT8|-f-1 -l {sferum} -t 4 -a1
+ALT9|-f-1 -n ozon.ru -s1+s -S -a1
+ALT10|-f-1 -l {4pda} -t 4 -a1
+ALT13|-f-1 -n mail.ru -s1+s -t 3 -a1
+FAKE TLS AUTO|-f-1 -Qr -n www.google.com -d1 -d1+sm -t 4 -a1
+FAKE TLS AUTO ALT|-f1 -Qr -n www.google.com -t 4 -a1
+SIMPLE FAKE|-f-1 -l {google} -t 4 -a1

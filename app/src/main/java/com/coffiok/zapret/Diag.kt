@@ -41,7 +41,7 @@ object Diag {
         sb.append("Zapret Android ${BuildConfig.VERSION_NAME} · Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT}) · ${Build.MANUFACTURER} ${Build.MODEL} · ${Build.SUPPORTED_ABIS.firstOrNull()}\n")
         val on = ZapretVpnService.running(ctx)
         val st = p.current()
-        sb.append("Обход: ${if (on) "включён" else "выключен"} · ${st.name}: ${st.args} · DNS ${p.dns} · IPv6 через обход: ${if (p.ipv6) "да" else "нет"} · TG-прокси: ${if (p.tgProxy) "да" else "нет"}\n")
+        sb.append("Обход: ${if (on) "включён" else "выключен"} · ${st.name}: ${st.args} · DNS ${p.dns} · IPv6 через обход: ${if (p.ipv6) "да" else "нет"} · QUIC: ${if (p.blockQuic) "закрыт" else "открыт"} · TG-прокси: ${if (p.tgProxy) "да" else "нет"}\n")
 
         // сеть
         try {

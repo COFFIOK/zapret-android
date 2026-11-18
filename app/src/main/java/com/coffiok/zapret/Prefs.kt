@@ -30,6 +30,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("ipv6", true)
         set(v) { sp.edit().putBoolean("ipv6", v).commit() }
 
+    /** QUIC (UDP 443) не пускать: YouTube и другие приложения уходят на обычный HTTPS, который Zapret умеет обходить. */
+    var blockQuic: Boolean
+        get() = sp.getBoolean("blockQuic", true)
+        set(v) { sp.edit().putBoolean("blockQuic", v).commit() }
+
     var tgProxy: Boolean
         get() = sp.getBoolean("tgProxy", false)
         set(v) { sp.edit().putBoolean("tgProxy", v).commit() }
@@ -38,18 +43,34 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("askedNotif", false)
         set(v) { sp.edit().putBoolean("askedNotif", v).apply() }
 
-    /** Готовые стратегии: Z1 — стандартная, остальные — набор из ByeByeDPI (GPL-3.0). */
+    /** Готовые стратегии: сначала по мотивам Flowseal (GENERAL, ALT…), потом Z1–Z61 (Z1 — стандартная, остальные — набор из ByeByeDPI, GPL-3.0). */
     fun strategies(): List<Strategy> {
+        val fs = ctx.assets.open("flowseal.list").bufferedReader().readLines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+            .mapIndexed { i, l -> Strategy("F${i + 1}", l.substringBefore('|'), l.substringAfter('|')) }
         val lines = ctx.assets.open("strategies.list").bufferedReader().readLines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
-        val list = lines.mapIndexed { i, a -> Strategy("Z${i + 1}", "Z${i + 1}", a.replace("{sni}", "google.com")) }.toMutableList()
+        val list = (fs + lines.mapIndexed { i, a -> Strategy("Z${i + 1}", "Z${i + 1}", a.replace("{sni}", "google.com")) }).toMutableList()
         list.add(Strategy("custom", "Своя", customArgs))
         return list
+    }
+
+    /** {google}, {4pda}, {sferum} → файлы-подделки (из приложения во внутреннюю папку). */
+    fun resolve(args: String): String {
+        if (!args.contains('{')) return args
+        val dir = java.io.File(ctx.filesDir, "fake").apply { mkdirs() }
+        val map = mapOf("google" to "tls_clienthello_www_google_com.bin", "4pda" to "tls_clienthello_4pda_to.bin", "sferum" to "tls_clienthello_www_sferum_ru.bin")
+        var out = args
+        for ((k, f) in map) if (out.contains("{$k}")) {
+            val dst = java.io.File(dir, f)
+            if (!dst.exists()) ctx.assets.open("fake/$f").use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+            out = out.replace("{$k}", dst.absolutePath)
+        }
+        return out
     }
 
     fun current(): Strategy = strategies().firstOrNull { it.id == strategyId } ?: strategies().first()
 
     /** Параметры ByeDPI с учётом кавычек. */
-    fun args(): List<String> = split(current().args)
+    fun args(): List<String> = split(resolve(current().args))
 
     companion object {
         fun split(s: String): List<String> {

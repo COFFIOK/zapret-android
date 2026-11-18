@@ -77,8 +77,14 @@ class ZapretVpnService : VpnService() {
             val prefs = Prefs(this)
             val st = prefs.current()
             val args = arrayOf("ciadpi", "--ip", "127.0.0.1", "--port", PORT.toString()) + prefs.args()
+            Native.setDropQuic(prefs.blockQuic)
+            // IPv6 через обход — только если он вообще есть в сети, иначе приложения будут ждать недоступный IPv6
+            val v6 = try {
+                val cm = getSystemService(android.net.ConnectivityManager::class.java)
+                cm.getLinkProperties(cm.activeNetwork)?.linkAddresses?.any { val a = it.address; a is java.net.Inet6Address && !a.isLinkLocalAddress && !a.isSiteLocalAddress && (a.address[0].toInt() and 0xFE) != 0xFC } == true
+            } catch (e: Exception) { false }
             status("starting", st.name)
-            Diag.log(this, "старт: ${st.name} ${st.args} · DNS ${prefs.dns} · IPv6 ${prefs.ipv6}")
+            Diag.log(this, "старт: ${st.name} ${st.args} · DNS ${prefs.dns} · IPv6 ${prefs.ipv6}/${v6} · QUIC ${if (prefs.blockQuic) "закрыт" else "открыт"}")
             thread(name = "byedpi") {
                 val code = try { Native.startProxy(args) } catch (e: Throwable) { -1 }
                 if (!stopping) stopAll("Стратегия ${st.name} не запустилась (код $code). Попробуй другую.")
@@ -92,7 +98,7 @@ class ZapretVpnService : VpnService() {
                 .addRoute("0.0.0.0", 0)
                 .addDnsServer(prefs.dns)
                 .setConfigureIntent(PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE))
-            if (prefs.ipv6) { b.addAddress("fd00::1", 128); b.addRoute("::", 0) }
+            if (prefs.ipv6 && v6) { b.addAddress("fd00::1", 128); b.addRoute("::", 0) }
             b.addDisallowedApplication(packageName)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) b.setMetered(false)
             val fd = b.establish() ?: run { stopAll("Android не дал создать VPN"); return }

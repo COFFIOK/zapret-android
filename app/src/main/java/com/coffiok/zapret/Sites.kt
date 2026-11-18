@@ -12,7 +12,7 @@ data class SiteGroup(val name: String, val sites: List<String>, val builtin: Boo
 object Sites {
     /** Встроенные группы: адреса, по которым тест понимает, открывается ли сервис. */
     val builtin = listOf(
-        SiteGroup("YouTube", listOf("www.youtube.com", "i.ytimg.com", "youtubei.googleapis.com", "redirector.googlevideo.com", "yt3.ggpht.com"), true),
+        SiteGroup("YouTube", listOf("www.youtube.com", "i.ytimg.com", "youtubei.googleapis.com", Tester.VIDEO, "yt3.ggpht.com"), true),
         SiteGroup("Discord", listOf("discord.com", "gateway.discord.gg", "cdn.discordapp.com", "media.discordapp.net", "discord.gg"), true),
         SiteGroup("Instagram", listOf("www.instagram.com", "i.instagram.com", "static.cdninstagram.com"), true),
         SiteGroup("X (Twitter)", listOf("x.com", "abs.twimg.com", "pbs.twimg.com"), true),

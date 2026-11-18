@@ -636,7 +636,7 @@ class MainActivity : ComponentActivity() {
                 quic = !quic; prefs.blockQuic = quic
                 if (state.value == "on") { restartAfterStop = true; ZapretVpnService.stop(this@MainActivity) }
             }
-            ToggleRow("IPv6 через обход", "без этого часть приложений идёт мимо Zapret", ipv6) {
+            ToggleRow("IPv6", "выключи, если сайты грузятся долго", ipv6) {
                 ipv6 = !ipv6; prefs.ipv6 = ipv6
                 if (state.value == "on") { restartAfterStop = true; ZapretVpnService.stop(this@MainActivity) }
             }

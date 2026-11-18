@@ -17,8 +17,10 @@ static int proxy_running;
 
 // «Закрыть QUIC»: UDP на порт 443 не соединяем — приложения переходят на обычный HTTPS (его ByeDPI обходит)
 static volatile int drop_quic = 0;
+static volatile int drop_v6 = 0;
 int __real_connect(int fd, const struct sockaddr *a, socklen_t l);
 int __wrap_connect(int fd, const struct sockaddr *a, socklen_t l) {
+    if (drop_v6 && a && a->sa_family == AF_INET6) { errno = ENETUNREACH; return -1; }
     if (drop_quic && a && (a->sa_family == AF_INET || a->sa_family == AF_INET6)) {
         int type = 0; socklen_t tl = sizeof(type);
         if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &tl) == 0 && type == SOCK_DGRAM) {
@@ -28,6 +30,11 @@ int __wrap_connect(int fd, const struct sockaddr *a, socklen_t l) {
         }
     }
     return __real_connect(fd, a, l);
+}
+
+JNIEXPORT void JNICALL
+Java_com_coffiok_zapret_Native_setDropV6(JNIEnv *env, jobject thiz, jboolean on) {
+    drop_v6 = on ? 1 : 0;
 }
 
 JNIEXPORT void JNICALL

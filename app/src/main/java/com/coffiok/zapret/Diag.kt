@@ -61,17 +61,22 @@ object Diag {
         } catch (e: Exception) { sb.append("Сеть: ошибка ${e.message}\n") }
 
         // адреса и проверки: напрямую (как без Zapret) и через движок обхода (если включён)
-        val sites = listOf("www.youtube.com", "i.ytimg.com", "redirector.googlevideo.com", "discord.com", "gateway.discord.gg", "web.telegram.org", "www.instagram.com")
+        val sites = listOf("www.youtube.com", "i.ytimg.com", "redirector.googlevideo.com", Tester.VIDEO, "discord.com", "gateway.discord.gg", "web.telegram.org", "www.instagram.com")
         try {
             val a = InetAddress.getAllByName("www.youtube.com").joinToString(" ") { it.hostAddress ?: "" }
             sb.append("DNS youtube: ${a.take(200)}\n")
         } catch (e: Exception) { sb.append("DNS youtube: не найден (${e.message})\n") }
+        // обход выключен — проверяем через временную копию движка с выбранной стратегией
+        val tmp = if (on) null else Tester.spawn(ctx, p.resolve(p.current().args), 21999)
+        val viaPort = if (on) 1080 else if (tmp != null) 21999 else 0
+        try { sb.append("Видеосервер: ${Tester.videoNode(if (viaPort > 0) Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", viaPort)) else null) ?: "не найден"}\n") } catch (e: Exception) { }
         val pool = Executors.newFixedThreadPool(8)
         val direct = sites.map { s -> pool.submit<String> { check(s, null) } }
-        val via = if (on) sites.map { s -> pool.submit<String> { check(s, Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", 1080))) } } else null
-        sb.append("Напрямую / через обход:\n")
+        val via = if (viaPort > 0) sites.map { s -> pool.submit<String> { check(s, Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", viaPort))) } } else null
+        sb.append(if (on) "Напрямую / через обход:\n" else "Напрямую / через стратегию (обход выключен):\n")
         sites.forEachIndexed { i, s -> sb.append("  $s: ${direct[i].get()}${if (via != null) " / " + via[i].get() else ""}\n") }
         pool.shutdown()
+        tmp?.destroy()
 
         val top = Tester.results.take(3).joinToString("; ") { "${it.strategy.name} ${it.ok}/${it.total}" }
         if (top.isNotBlank()) sb.append("Последний тест: $top\n")
@@ -83,7 +88,10 @@ object Diag {
         return sb.toString().take(6000)
     }
 
-    private fun check(site: String, proxy: Proxy?): String = try {
+    private fun check(site: String, proxy: Proxy?): String = if (site == Tester.VIDEO) {
+        val t0 = System.currentTimeMillis()
+        if (Tester.videoOk(proxy)) "ok ${System.currentTimeMillis() - t0}мс" else "✕"
+    } else try {
         val t0 = System.currentTimeMillis()
         val c = (if (proxy != null) URL("https://$site/").openConnection(proxy) else URL("https://$site/").openConnection()) as HttpURLConnection
         c.connectTimeout = 5000; c.readTimeout = 5000; c.instanceFollowRedirects = false

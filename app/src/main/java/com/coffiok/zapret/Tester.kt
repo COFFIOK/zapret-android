@@ -34,6 +34,30 @@ object Tester {
     private val procs = mutableListOf<Process>()
     private val port = java.util.concurrent.atomic.AtomicInteger(0)
 
+    /** Особая «строка сайта»: настоящий видеосервер YouTube, который отдаёт сами ролики (у каждого провайдера свой). */
+    const val VIDEO = "видео · googlevideo.com"
+
+    /** Ближайший видеосервер YouTube (rr1---sn-….googlevideo.com) — тот, с которого телефон реально грузит видео. */
+    fun videoNode(proxy: Proxy?): String? = try {
+        val u = URL("https://redirector.googlevideo.com/report_mapping?di=no")
+        val c = (if (proxy != null) u.openConnection(proxy) else u.openConnection()) as HttpURLConnection
+        c.connectTimeout = TIMEOUT; c.readTimeout = TIMEOUT; c.setRequestProperty("User-Agent", "Mozilla/5.0")
+        val t = c.inputStream.bufferedReader().use { it.readText() }; c.disconnect()
+        Regex("sn-[a-z0-9]+").find(t)?.value?.let { "rr1---$it.googlevideo.com" }
+    } catch (e: Exception) { null }
+
+    /** Видеосервер открывается: сначала узнаём его адрес, потом тянем с него ответ. */
+    fun videoOk(proxy: Proxy?): Boolean { val n = videoNode(proxy) ?: return false; return open("$n/generate_204", proxy) }
+
+    /** Отдельная копия движка обхода на своём порту (для теста и для отчёта). */
+    fun spawn(ctx: Context, args: String, port: Int): Process? {
+        val exe = File(ctx.applicationInfo.nativeLibraryDir, "libciadpi.so").absolutePath
+        val p = try { ProcessBuilder(listOf(exe, "--ip", "127.0.0.1", "--port", port.toString()) + Prefs.split(args)).redirectErrorStream(true).start() } catch (e: Exception) { return null }
+        thread { try { p.inputStream.use { it.readBytes() } } catch (e: Exception) { } }
+        if (!waitPort(port, p)) { p.destroy(); return null }
+        return p
+    }
+
     private const val PARALLEL = 3
     private const val TIMEOUT = 5000
 
@@ -86,7 +110,7 @@ object Tester {
             if (!waitPort(port, p)) return TestResult(st, 0, sites.size, true, emptyList())
             val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", port))
             val pool = Executors.newFixedThreadPool(8)
-            val futures = sites.map { (g, s) -> pool.submit<SiteCheck> { SiteCheck(g, s, !cancel && open(s, proxy)) } }
+            val futures = sites.map { (g, s) -> pool.submit<SiteCheck> { SiteCheck(g, s, !cancel && (if (s == VIDEO) videoOk(proxy) else open(s, proxy))) } }
             val checks = futures.map { it.get() }
             pool.shutdown()
             return TestResult(st, checks.count { it.ok }, checks.size, false, checks)
@@ -96,7 +120,7 @@ object Tester {
         }
     }
 
-    private fun waitPort(port: Int, p: Process): Boolean {
+    internal fun waitPort(port: Int, p: Process): Boolean {
         repeat(40) {
             if (cancel) return false
             try { if (p.exitValue() >= 0) return false } catch (e: IllegalThreadStateException) { }     // ещё работает
@@ -106,8 +130,9 @@ object Tester {
     }
 
     /** Сайт открылся — сервер ответил по HTTPS (любым кодом). */
-    private fun open(site: String, proxy: Proxy): Boolean = try {
-        val c = URL("https://$site/").openConnection(proxy) as HttpURLConnection
+    fun open(site: String, proxy: Proxy?): Boolean = try {
+        val u = URL(if (site.contains('/')) "https://$site" else "https://$site/")
+        val c = (if (proxy != null) u.openConnection(proxy) else u.openConnection()) as HttpURLConnection
         c.connectTimeout = TIMEOUT; c.readTimeout = TIMEOUT; c.instanceFollowRedirects = false
         c.requestMethod = "GET"; c.setRequestProperty("User-Agent", "Mozilla/5.0")
         val code = c.responseCode

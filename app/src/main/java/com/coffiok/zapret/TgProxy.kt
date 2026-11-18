@@ -31,6 +31,7 @@ object TgProxy {
     private val rnd = SecureRandom()
     @Volatile private var server: ServerSocket? = null
     @Volatile private var frontedFirst = true
+    @Volatile private var lastBadLog = 0L
 
     fun secret(ctx: Context): String {
         val sp = ctx.getSharedPreferences("zapret", Context.MODE_PRIVATE)
@@ -69,7 +70,11 @@ object TgProxy {
         val cltDec = ctr(sha256(prekeyIv.copyOfRange(0, 32) + secret), prekeyIv.copyOfRange(32, 48))
         val dec = cltDec.update(hs)                                   // заодно проматывает первые 64 байта
         val tag = le32(dec, 56)
-        if (tag !in TAGS) { log("TG: неверный секрет — переподключи прокси в Telegram"); return }
+        if (tag !in TAGS) {
+            val now = System.currentTimeMillis()
+            if (now - lastBadLog > 60000) { lastBadLog = now; log("TG: неверный секрет — нажми «Подключить в Telegram» ещё раз") }
+            return
+        }
         var dc = ((dec[60].toInt() and 0xFF) or (dec[61].toInt() shl 8)).toShort().toInt()
         val media = dc < 0; dc = Math.abs(dc)
         val test = dc >= 10000; if (test) dc -= 10000

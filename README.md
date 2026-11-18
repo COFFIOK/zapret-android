@@ -6,6 +6,8 @@
 - Выбор стратегии (Z1…Z60) или своя строка параметров.
 - Тест стратегий: какая лучше открывает YouTube, Discord и твои сайты.
 - «Мои сайты»: свои группы сайтов и обмен ими по коду — те же коды, что в Zapret GUI на ПК.
+- Telegram-прокси (как в Zapret GUI на ПК) — подключается одной кнопкой.
+- Отчёт об ошибке и чат с автором прямо из приложения.
 - Обновления прямо в приложении.
 - Плитка в шторке уведомлений и запуск вместе с телефоном.
 
@@ -17,6 +19,7 @@ IP-адрес не меняется и трафик не шифруется — 
 
 ## Благодарности и лицензия
 - Движок — [ByeDPI](https://github.com/hufrea/byedpi) (hufrea), MIT.
+- Telegram-прокси — порт [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy) (Flowseal), MIT.
 - Туннель — [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) (heiher), MIT.
 - Связка движка и туннеля и набор стратегий — по мотивам [ByeByeDPI](https://github.com/romanvht/ByeByeDPI) (romanvht), GPL-3.0.
 - Пиксельный шрифт — на основе Pixelify Sans, SIL Open Font License (`FONT-OFL.txt`).

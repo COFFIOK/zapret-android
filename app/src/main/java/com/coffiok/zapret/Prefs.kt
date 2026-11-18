@@ -25,6 +25,15 @@ class Prefs(context: Context) {
         get() = sp.getString("dns", "1.1.1.1") ?: "1.1.1.1"
         set(v) { sp.edit().putString("dns", v).commit() }
 
+    /** IPv6 тоже через обход: иначе приложения ходят по IPv6 мимо Zapret (например, YouTube на мобильном интернете). */
+    var ipv6: Boolean
+        get() = sp.getBoolean("ipv6", true)
+        set(v) { sp.edit().putBoolean("ipv6", v).commit() }
+
+    var tgProxy: Boolean
+        get() = sp.getBoolean("tgProxy", false)
+        set(v) { sp.edit().putBoolean("tgProxy", v).commit() }
+
     var askedNotifications: Boolean
         get() = sp.getBoolean("askedNotif", false)
         set(v) { sp.edit().putBoolean("askedNotif", v).apply() }

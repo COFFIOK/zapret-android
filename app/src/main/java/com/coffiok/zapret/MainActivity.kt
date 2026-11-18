@@ -203,6 +203,8 @@ class MainActivity : ComponentActivity() {
                 }
                 Spacer(Modifier.height(10.dp))
                 PixelButton("Подобрать стратегию", accent = false) { openTest() }
+                Spacer(Modifier.height(10.dp))
+                TelegramCard()
             }
 
             if (picking) StrategyList(prefs, sid,
@@ -215,6 +217,31 @@ class MainActivity : ComponentActivity() {
             if (editing) CustomEditor(prefs.customArgs,
                 onSave = { text -> editing = false; prefs.customArgs = text.trim(); strategyId.value = ""; useStrategy("custom") },
                 onClose = { editing = false })
+        }
+    }
+
+    @Composable
+    private fun TelegramCard() {
+        val prefs = remember { Prefs(this) }
+        var tg by remember { mutableStateOf(prefs.tgProxy) }
+        PixelCard {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable {
+                tg = !tg; prefs.tgProxy = tg
+                if (state.value == "on") { restartAfterStop = true; ZapretVpnService.stop(this@MainActivity) }
+            }) {
+                Column(Modifier.weight(1f)) {
+                    Text("Telegram-прокси", fontSize = 14.sp, color = Fg)
+                    Text("работает, пока включён обход", fontSize = 11.sp, color = Muted)
+                }
+                PixelToggle(tg)
+            }
+            if (tg) {
+                Spacer(Modifier.height(10.dp))
+                Text("Подключить в Telegram", fontSize = 13.sp, color = Bg, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.background(Accent).clickable {
+                        try { open(TgProxy.link(this@MainActivity)) } catch (e: Exception) { toast("Telegram не установлен") }
+                    }.padding(horizontal = 12.dp, vertical = 8.dp))
+            }
         }
     }
 
@@ -498,6 +525,70 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // ---- чат с автором и отчёт об ошибке ----
+    @Composable
+    private fun ChatScreen(bug: Boolean, onClose: () -> Unit) {
+        BackHandler { onClose() }
+        var msgs by remember { mutableStateOf<List<Chat.Msg>>(emptyList()) }
+        var text by remember { mutableStateOf("") }
+        var nick by remember { mutableStateOf(Chat.nick(this)) }
+        var busy by remember { mutableStateOf<String?>(null) }
+        var err by remember { mutableStateOf<String?>(null) }
+        var bugMode by remember { mutableStateOf(bug) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                thread { val m = Chat.messages(this@MainActivity); runOnUiThread { msgs = m } }
+                kotlinx.coroutines.delay(15000)
+            }
+        }
+        Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(if (bugMode) "Ошибка" else "Чат с автором", fontFamily = Pixel, fontSize = 22.sp, color = Fg, modifier = Modifier.weight(1f))
+                Text("✕", fontSize = 20.sp, color = Muted, modifier = Modifier.clickable { onClose() }.padding(8.dp))
+            }
+            Text(if (bugMode) "опиши, что не работает · к сообщению приложится отчёт: версия, сеть, проверка сайтов и журнал"
+                 else "пиши об ошибках, идеях и вопросах — автор Zapret ответит здесь же", fontSize = 12.sp, color = Muted)
+            Spacer(Modifier.height(10.dp))
+            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp), reverseLayout = true) {
+                items(msgs.reversed(), key = { it.n }) { m ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (m.dev) Arrangement.Start else Arrangement.End) {
+                        Column(Modifier.fillMaxWidth(0.85f).background(if (m.dev) Card else Color(0xFF173A2B)).border(2.dp, if (m.dev) Line else AccentDark).padding(10.dp)) {
+                            if (m.dev) Text("COFFIOK", fontSize = 10.sp, color = Accent)
+                            Text(m.text, fontSize = 13.sp, color = Fg)
+                        }
+                    }
+                }
+                if (msgs.isEmpty()) item { Text("Здесь пока пусто", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(8.dp)) }
+            }
+            Spacer(Modifier.height(8.dp))
+            if (nick.length < 2 || Chat.nick(this@MainActivity).length < 2) {
+                Field(nick, { nick = it.take(24) }, hint = "Твой ник, например: Вася", single = true)
+                Spacer(Modifier.height(6.dp))
+            }
+            Field(text, { text = it.take(2000) }, Modifier.heightIn(min = 70.dp), hint = if (bugMode) "Например: YouTube не грузится, Discord работает" else "Сообщение…")
+            if (err != null) { Spacer(Modifier.height(6.dp)); Text(err!!, color = Red, fontSize = 12.sp) }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PixelButton(busy ?: if (bugMode) "Отправить отчёт" else "Отправить", Modifier.weight(1f), enabled = busy == null && text.isNotBlank() && nick.trim().length >= 2) {
+                    Chat.setNick(this@MainActivity, nick)
+                    val t = text.trim(); val withLog = bugMode
+                    busy = if (withLog) "Собираю отчёт…" else "Отправляю…"; err = null
+                    thread {
+                        val log = if (withLog) try { Diag.report(this@MainActivity) } catch (e: Exception) { "отчёт не собрался: ${e.message}" } else null
+                        runOnUiThread { busy = "Отправляю…" }
+                        val e = Chat.send(this@MainActivity, t, if (withLog) "bug" else "other", log)
+                        val m = if (e == null) Chat.messages(this@MainActivity) else null
+                        runOnUiThread {
+                            busy = null
+                            if (e != null) err = e else { text = ""; bugMode = false; msgs = m ?: msgs; toast(if (withLog) "Отчёт отправлен автору" else "Отправлено") }
+                        }
+                    }
+                }
+                if (!bugMode) PixelButton("Ошибка", Modifier.width(110.dp), accent = false) { bugMode = true }
+            }
+        }
+    }
+
     // ---- вкладка «Ещё» ----
     @Composable
     private fun MoreTab() {
@@ -508,10 +599,18 @@ class MainActivity : ComponentActivity() {
         val checking by Updater.checking
         val prog by Updater.progress
         val msg by Updater.message
+        var chat by remember { mutableStateOf(0) }       // 0 — нет, 1 — чат, 2 — отчёт об ошибке
+        var ipv6 by remember { mutableStateOf(prefs.ipv6) }
+
+        if (chat != 0) { ChatScreen(bug = chat == 2) { chat = 0 }; return }
 
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Spacer(Modifier.height(18.dp))
             Title("Ещё")
+
+            Caption("Связь с автором")
+            PixelButton("Сообщить об ошибке") { chat = 2 }
+            PixelButton("Чат с автором", accent = false) { chat = 1 }
 
             Caption("Обновления")
             PixelCard(border = if (upd != null) Amber else Line) {
@@ -530,6 +629,11 @@ class MainActivity : ComponentActivity() {
 
             Caption("Запуск")
             ToggleRow("Запуск с телефоном", "включать обход после перезагрузки", autostart) { autostart = !autostart; prefs.autostart = autostart }
+
+            ToggleRow("IPv6 через обход", "без этого часть приложений идёт мимо Zapret", ipv6) {
+                ipv6 = !ipv6; prefs.ipv6 = ipv6
+                if (state.value == "on") { restartAfterStop = true; ZapretVpnService.stop(this@MainActivity) }
+            }
 
             Caption("DNS")
             PixelCard {

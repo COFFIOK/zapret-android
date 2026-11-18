@@ -78,6 +78,7 @@ class ZapretVpnService : VpnService() {
             val st = prefs.current()
             val args = arrayOf("ciadpi", "--ip", "127.0.0.1", "--port", PORT.toString()) + prefs.args()
             status("starting", st.name)
+            Diag.log(this, "старт: ${st.name} ${st.args} · DNS ${prefs.dns} · IPv6 ${prefs.ipv6}")
             thread(name = "byedpi") {
                 val code = try { Native.startProxy(args) } catch (e: Throwable) { -1 }
                 if (!stopping) stopAll("Стратегия ${st.name} не запустилась (код $code). Попробуй другую.")
@@ -91,6 +92,7 @@ class ZapretVpnService : VpnService() {
                 .addRoute("0.0.0.0", 0)
                 .addDnsServer(prefs.dns)
                 .setConfigureIntent(PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE))
+            if (prefs.ipv6) { b.addAddress("fd00::1", 128); b.addRoute("::", 0) }
             b.addDisallowedApplication(packageName)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) b.setMetered(false)
             val fd = b.establish() ?: run { stopAll("Android не дал создать VPN"); return }
@@ -98,8 +100,10 @@ class ZapretVpnService : VpnService() {
 
             val cfg = "tunnel:\n  mtu: 8500\nmisc:\n  task-stack-size: 81920\nsocks5:\n  address: 127.0.0.1\n  port: $PORT\n  udp: udp\n"
             thread(name = "tunnel") { try { Native.startTunnel(cfg, fd.fd) } catch (e: Throwable) { if (!stopping) stopAll("Туннель не запустился") } }
+            if (prefs.tgProxy) TgProxy.start(TgProxy.secret(this)) { Diag.log(this, it) }
             status("on", st.name)
             updateNotification(st.name)
+            Diag.log(this, "обход включён")
         } catch (e: Throwable) {
             stopAll("Не удалось включить: ${e.message}")
         }
@@ -117,6 +121,8 @@ class ZapretVpnService : VpnService() {
     private fun stopAll(error: String?) {
         if (stopping) return
         stopping = true
+        Diag.log(this, if (error != null) "ошибка: $error" else "обход выключен")
+        TgProxy.stop()
         try { Native.stopTunnel() } catch (e: Throwable) { }
         try { Native.stopProxy() } catch (e: Throwable) { }
         try { tun?.close() } catch (e: Throwable) { }

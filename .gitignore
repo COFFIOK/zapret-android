@@ -4,5 +4,3 @@ local.properties
 *.iml
 .idea/
 app/src/main/jniLibs/
-*.jks
-*.keystore

@@ -6,10 +6,8 @@ plugins {
 
 val abis = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
 
-// подпись релиза: ключ передаётся автосборке через секреты GitHub (ZAPRET_KEYSTORE и пароль);
-// без них собирается APK с отладочной подписью
-val ksFile = System.getenv("ZAPRET_KEYSTORE_FILE")
-
+// подпись: постоянный ключ лежит прямо в репозитории (app/zapret.jks), чтобы новые версии ставились поверх старых.
+// Ключ открытый — это сознательно: секреты не нужны.
 android {
     namespace = "com.coffiok.zapret"
     compileSdk = 35
@@ -24,13 +22,11 @@ android {
     }
 
     signingConfigs {
-        if (ksFile != null) {
-            create("release") {
-                storeFile = file(ksFile)
-                storePassword = System.getenv("ZAPRET_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("ZAPRET_KEY_ALIAS") ?: "zapret"
-                keyPassword = System.getenv("ZAPRET_KEYSTORE_PASSWORD")
-            }
+        create("release") {
+            storeFile = file("zapret.jks")
+            storePassword = "TaAXLJo_QX2WLZO134KTIY1cfUvUF6yD"
+            keyAlias = "zapret"
+            keyPassword = "TaAXLJo_QX2WLZO134KTIY1cfUvUF6yD"
         }
     }
 
@@ -39,7 +35,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (ksFile != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

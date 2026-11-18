@@ -16,8 +16,8 @@ android {
         applicationId = "com.coffiok.zapret"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
         ndk { abiFilters.addAll(abis) }
     }
 
@@ -95,5 +95,12 @@ tasks.register<Exec>("runNdkBuild") {
         "NDK_APPLICATION_MK=src/main/jni/Application.mk",
         "-j8"
     ))
+    // ciadpi (программа) → libciadpi.so: только так Android распакует её в папку библиотек, откуда её можно запускать
+    doLast {
+        file("src/main/jniLibs").listFiles()?.forEach { abi ->
+            val exe = File(abi, "ciadpi")
+            if (exe.exists()) { val dst = File(abi, "libciadpi.so"); dst.delete(); exe.renameTo(dst) }
+        }
+    }
 }
 tasks.named("preBuild") { dependsOn("runNdkBuild") }
